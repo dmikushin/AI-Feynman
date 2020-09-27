@@ -1,9 +1,9 @@
-        ! Max Tegmark 171119, 190128-31, 190218, 25
-        ! Same as symbolic_regress3.f except that it fits for the symbolic formula plus an arbitrary constant.
+        ! Max Tegmark 171119, 190128-31, 190218
+        ! Same as symbolic_regress2.f except that it fits for the symbolic formula times an arbitrary constant.
         ! Loads templates.csv functions.dat and mystery.dat, returns winner.
-        ! scp -P2222 symbolic_regress3.f euler@tor.mit.edu:FEYNMAN
-        ! COMPILATION: a f 'f77 -O3 -o symbolic_regress3.x symbolic_regress3.f |& more'
-        ! SAMPLE USAGE: call symbolic_regress3.x 6ops.txt arity2templates.txt mystery012.dat results.dat
+        ! scp -P2222 symbolic_regress2.f euler@tor.mit.edu:FEYNMAN
+        ! COMPILATION: a f 'f77 -O3 -o symbolic_regress2.x symbolic_regress2.f |& more'
+        ! SAMPLE USAGE: call symbolic_regress2.x 4ops.txt arity2templates.txt mysteryB3.dat results.dat
         ! functions.dat contains a single line (say "0>+*-/") with the single-character symbols
         ! that will be used, drawn from this list:
         !
@@ -32,23 +32,19 @@
         !  1
         !  a, b, c, ...: input variables for function (need not be listed in functions.dat)
 
-        program symbolic_regress
-           call go
-        end
-
-        subroutine go
+        subroutine symbolic_regress2() bind(C)
            implicit none
            character*256 opsfile, templatefile, mysteryfile, outfile, usedfuncs
            character*60 comline, functions, ops, formula
            integer arities(21), nvar, nvarmax, nmax, lnblnk
            parameter(nvarmax=20, nmax=10000000)
-           real*8 f, newloss, minloss, maxloss, rmsloss, xy(nvarmax + 1, nmax), epsilon
-           real*8 ymin, prefactor, DL, DL2, DL3, limit
+           real*8 newloss, minloss, maxloss, rmsloss, xy(nvarmax + 1, nmax), epsilon
+           real*8 ymax, prefactor, DL, DL2, DL3
            parameter(epsilon=0.00001)
            data arities/2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0/
            data functions/"+*-/><~\OJLESCANTR01P"/
            integer nn(0:2), ii(nmax), kk(nmax), radix(nmax)
-           integer ndata, i, j, n, jmin
+           integer ndata, i, j, n, jmax
            integer*8 nformulas
            logical done
            character*60 func(0:2), template
@@ -97,17 +93,17 @@
            write (*, '(1a24)') 'Loading mystery data....'
            call LoadMatrixTranspose(nvarmax + 1, nvar + 1, nmax, ndata, xy, mysteryfile)
            write (*, '(1a24,i8)') 'Number of examples......', ndata
-           ! Find min(abs(y)) to use for offset estimation:
-           jmin = 1
-           ymin = abs(xy(1, nvar + 1))
+           ! Find max(abs(y)) to use for normalization estimation (crucial to avoid data point where y~0):
+           jmax = 1
+           ymax = abs(xy(1, nvar + 1))
            do j = 2, ndata
-              if (ymin > abs(xy(nvar + 1, j))) then
-                 ymin = abs(xy(nvar + 1, j))
-                 jmin = j
+              if (ymax < abs(xy(nvar + 1, j))) then
+                 ymax = abs(xy(nvar + 1, j))
+                 jmax = j
               end if
            end do
-           print *, 'Mystery data has largest magnitude ', ymin, ' at j=', jmin
-           print *, 'symbolic_regress3.f90: Searching for best fit...'
+           print *, 'Mystery data has largest magnitude ', ymax, ' at j=', jmax
+           print *, 'symbolic_regress2.f90: Searching for best fit...'
            nformulas = 0
            minloss = 1.e6
            template = ''
@@ -133,11 +129,11 @@
               !write(*,'(1f20.12,99i3)') minloss, (ii(i),i=1,n), (kk(i),i=1,n)
               !write(*,'(1a24)') ops(1:n)
 
-              prefactor = xy(nvar + 1, jmin) - f(n, ii, ops, xy(1, jmin))
+              prefactor = xy(nvar + 1, jmax)/f(n, ii, ops, xy(1, jmax))
               j = 1
               maxloss = 0.
               do while ((maxloss .lt. minloss) .and. (j .le. ndata))
-                 newloss = abs(xy(nvar + 1, j) - (prefactor + f(n, ii, ops, xy(1, j))))
+                 newloss = abs(xy(nvar + 1, j) - prefactor*f(n, ii, ops, xy(1, j)))
             !!!!!print *,'newloss: ',j,newloss,xy(nvar,j),f(n,ii,ops,xy(1,j))
                  if (.not. ((newloss .ge. 0) .or. (newloss .le. 0))) newloss = 1.e30 ! This was a NaN :-)
                  if (maxloss .lt. newloss) maxloss = newloss
@@ -147,8 +143,7 @@
                  minloss = maxloss
                  rmsloss = 0.
                  do j = 1, ndata
-                    newloss = abs(xy(nvar + 1, j) - (prefactor + f(n, ii, ops, xy(1, j))))
-                    rmsloss = rmsloss + newloss**2
+                    rmsloss = rmsloss + (xy(nvar + 1, j) - prefactor*f(n, ii, ops, xy(1, j)))**2
                  end do
                  rmsloss = sqrt(rmsloss/ndata)
                  DL = log(nformulas*max(1., minloss/epsilon))/log(2.)
@@ -172,124 +167,127 @@
            stop
 670        print *, 'DEATH ERROR: missing file ', templatefile(1:lnblnk(templatefile))
            stop
-        end
 
-        real*8 function limit(x)
-           implicit none
-           real*8 x, xmax
-           parameter(xmax=666.)
-           if (abs(x) .lt. xmax) then
-              limit = x
-           else
-              limit = sign(xmax, x)
-           end if
-           return
-        end
+        contains
 
-        real*8 function f(n, arities, ops, x) ! n=number of ops, x=arg vector
-           implicit none
-           integer nmax, n, i, j, arities(n), arity, lnblnk
-           character*60 ops
-           parameter(nmax=100)
-           real*8 x(nmax), y, stack(nmax)
-           character op
-           !write(*,*) 'Evaluating function with ops = ',ops(1:n)
-           !write(*,'(3f10.5,99i3)') (x(i),i=1,3), (arities(i),i=1,n)
-           j = 0 ! Number of numbers on the stack
-           do i = 1, n
-              arity = arities(i)
-              op = ops(i:i)
-              if (arity .eq. 0) then ! This is a nonary function
-                 if (op .eq. "0") then
-                    y = 0.
-                 else if (op .eq. "1") then
-                    y = 1.
-                 else if (op .eq. "P") then
-                    y = 4.*atan(1.) ! pi
-                 else
-                    y = x(ichar(op) - 96)
-                 end if
-              else if (arity .eq. 1) then ! This is a unary function
-                 if (op .eq. ">") then
-                    y = stack(j) + 1
-                 else if (op .eq. "<") then
-                    y = stack(j) - 1
-                 else if (op .eq. "~") then
-                    y = -stack(j)
-                 else if (op .eq. "\") then
-                    y = 1./stack(j)
-                 else if (op .eq. "L") then
-                    y = log(stack(j))
-                 else if (op .eq. "E") then
-                    y = exp(stack(j))
-                 else if (op .eq. "S") then
-                    y = sin(stack(j))
-                 else if (op .eq. "C") then
-                    y = cos(stack(j))
-                 else if (op .eq. "A") then
-                    y = abs(stack(j))
-                 else if (op .eq. "N") then
-                    y = asin(stack(j))
-                 else if (op .eq. "T") then
-                    y = atan(stack(j))
-                 else
-                    y = sqrt(stack(j))
-                 end if
-              else ! This is a binary function
-                 if (op .eq. "+") then
-                    y = stack(j - 1) + stack(j)
-                 else if (op .eq. "-") then
-                    y = stack(j - 1) - stack(j)
-                 else if (op .eq. "*") then
-                    y = stack(j - 1)*stack(j)
-                 else
-                    y = stack(j - 1)/stack(j)
-                 end if
+           real*8 function limit(x)
+              implicit none
+              real*8 x, xmax
+              parameter(xmax=666.)
+              if (abs(x) .lt. xmax) then
+                 limit = x
+              else
+                 limit = sign(xmax, x)
               end if
-              j = j + 1 - arity
-              stack(j) = y
-              ! write(*,'(9f10.5)') (stack(k),k=1,j)
-           end do
-           if (j .ne. 1) stop 'DEATH ERROR: STACK UNBALANCED'
-           f = stack(1)
-           !write(*,'(9f10.5)') 666.,x(1),x(2),x(3),f
-           return
-        end
+              return
+           end function limit
 
-        subroutine multiloop(n, bases, i, done)
-           ! Handles <n> nested loops with loop variables i(1),...i(n).
-           ! Example: With n=3, bases=2, repeated calls starting with i=(000) will return
-           ! 001, 010, 011, 100, 101, 110, 111, 000 (and done=.true. the last time).
-           ! All it's doing is counting in mixed radix specified by the array <bases>.
-           implicit none
-           integer n, bases(n), i(n), k
-           logical done
-           done = .false.
-           k = 1
-555        i(k) = i(k) + 1
-           if (i(k) .lt. bases(k)) return
-           i(k) = 0
-           k = k + 1
-           if (k .le. n) goto 555
-           done = .true.
-           return
-        end
+           real*8 function f(n, arities, ops, x) ! n=number of ops, x=arg vector
+              implicit none
+              integer nmax, n, i, j, arities(n), arity, lnblnk
+              character*60 ops
+              parameter(nmax=100)
+              real*8 x(nmax), y, stack(nmax)
+              character op
+              !write(*,*) 'Evaluating function with ops = ',ops(1:n)
+              !write(*,'(3f10.5,99i3)') (x(i),i=1,3), (arities(i),i=1,n)
+              j = 0 ! Number of numbers on the stack
+              do i = 1, n
+                 arity = arities(i)
+                 op = ops(i:i)
+                 if (arity .eq. 0) then ! This is a nonary function
+                    if (op .eq. "0") then
+                       y = 0.
+                    else if (op .eq. "1") then
+                       y = 1.
+                    else if (op .eq. "P") then
+                       y = 4.*atan(1.) ! pi
+                    else
+                       y = x(ichar(op) - 96)
+                    end if
+                 else if (arity .eq. 1) then ! This is a unary function
+                    if (op .eq. ">") then
+                       y = stack(j) + 1
+                    else if (op .eq. "<") then
+                       y = stack(j) - 1
+                    else if (op .eq. "~") then
+                       y = -stack(j)
+                    else if (op .eq. "\") then
+                       y = 1./stack(j)
+                    else if (op .eq. "L") then
+                       y = log(stack(j))
+                    else if (op .eq. "E") then
+                       y = exp(stack(j))
+                    else if (op .eq. "S") then
+                       y = sin(stack(j))
+                    else if (op .eq. "C") then
+                       y = cos(stack(j))
+                    else if (op .eq. "A") then
+                       y = abs(stack(j))
+                    else if (op .eq. "N") then
+                       y = asin(stack(j))
+                    else if (op .eq. "T") then
+                       y = atan(stack(j))
+                    else
+                       y = sqrt(stack(j))
+                    end if
+                 else ! This is a binary function
+                    if (op .eq. "+") then
+                       y = stack(j - 1) + stack(j)
+                    else if (op .eq. "-") then
+                       y = stack(j - 1) - stack(j)
+                    else if (op .eq. "*") then
+                       y = stack(j - 1)*stack(j)
+                    else
+                       y = stack(j - 1)/stack(j)
+                    end if
+                 end if
+                 j = j + 1 - arity
+                 stack(j) = y
+                 ! write(*,'(9f10.5)') (stack(k),k=1,j)
+              end do
+              if (j .ne. 1) stop 'DEATH ERROR: STACK UNBALANCED'
+              f = stack(1)
+              !write(*,'(9f10.5)') 666.,x(1),x(2),x(3),f
+              return
+           end function f
 
-        subroutine LoadMatrixTranspose(nd, n, mmax, m, A, f)
-           ! Reads the n x m matrix A from the file named f, stored as its transpose
-           implicit none
-           integer nd, mmax, n, m, j
-           real*8 A(nd, mmax)
-           character*60 f
-           open (2, file=f, status='old')
-           m = 0
-555        m = m + 1
-           if (m .gt. mmax) stop 'DEATH ERROR: m>mmax in LoadVectorTranspose'
-           read (2, *, end=666) (A(j, m), j=1, n)
-           goto 555
-666        close (2)
-           m = m - 1
-           print *, m, ' rows read from file ', f
-           return
+           subroutine multiloop(n, bases, i, done)
+              ! Handles <n> nested loops with loop variables i(1),...i(n).
+              ! Example: With n=3, bases=2, repeated calls starting with i=(000) will return
+              ! 001, 010, 011, 100, 101, 110, 111, 000 (and done=.true. the last time).
+              ! All it's doing is counting in mixed radix specified by the array <bases>.
+              implicit none
+              integer n, bases(n), i(n), k
+              logical done
+              done = .false.
+              k = 1
+555           i(k) = i(k) + 1
+              if (i(k) .lt. bases(k)) return
+              i(k) = 0
+              k = k + 1
+              if (k .le. n) goto 555
+              done = .true.
+              return
+           end subroutine multiloop
+
+           subroutine LoadMatrixTranspose(nd, n, mmax, m, A, f)
+              ! Reads the n x m matrix A from the file named f, stored as its transpose
+              implicit none
+              integer nd, mmax, n, m, j
+              real*8 A(nd, mmax)
+              character*60 f
+              open (2, file=f, status='old')
+              m = 0
+555           m = m + 1
+              if (m .gt. mmax) stop 'DEATH ERROR: m>mmax in LoadVectorTranspose'
+              read (2, *, end=666) (A(j, m), j=1, n)
+              goto 555
+666           close (2)
+              m = m - 1
+              print *, m, ' rows read from file ', f
+              return
+           end subroutine LoadMatrixTranspose
+
         end
 

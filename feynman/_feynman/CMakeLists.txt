@@ -4,12 +4,22 @@ project(_feynman)
 
 enable_language(Fortran)
 
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none")
+# Enforce CMake to use the same version of Python, as used by setup.py script
+if ("x${Python3_VERSION}" STREQUAL "x")
+find_package(Python3 COMPONENTS Interpreter Development)
+else()
+find_package(Python3 ${Python3_VERSION} EXACT COMPONENTS Interpreter Development)
+endif()
+set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 
-add_executable(${PROJECT_NAME}_symbolic_regress1 symbolic_regress1.f90)
-add_executable(${PROJECT_NAME}_symbolic_regress2 symbolic_regress2.f90)
-add_executable(${PROJECT_NAME}_symbolic_regress3 symbolic_regress3.f90)
+set(PYBIND11_PYTHON_VERSION ${Python3_VERSION})
+add_subdirectory(ThirdParty/pybind11 EXCLUDE_FROM_ALL)
 
-install(TARGETS ${PROJECT_NAME}_symbolic_regress1 DESTINATION .)
-install(TARGETS ${PROJECT_NAME}_symbolic_regress2 DESTINATION .)
-install(TARGETS ${PROJECT_NAME}_symbolic_regress3 DESTINATION .)
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none -mcmodel=medium")
+
+file(GLOB SRCS "src/*.f90" "src/*.cpp")
+
+pybind11_add_module(${PROJECT_NAME} ${SRCS})
+
+install(TARGETS ${PROJECT_NAME} DESTINATION .)
+
