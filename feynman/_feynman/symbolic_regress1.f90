@@ -91,7 +91,7 @@
            call LoadMatrixTranspose(nvarmax + 1, nvar + 1, nmax, ndata, xy, mysteryfile)
            write (*, '(1a24,i8)') 'Number of examples......', ndata
 
-           print *, 'Searching for best fit...'
+           print *, 'symbolic_regress1.f90: Searching for best fit...'
            nformulas = 0
            minloss = 1.e6
            template = ''

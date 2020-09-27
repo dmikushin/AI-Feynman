@@ -1,9 +1,9 @@
-        ! Max Tegmark 171119, 190128-31, 190218, 25
-        ! Same as symbolic_regress3.f except that it fits for the symbolic formula plus an arbitrary constant.
+        ! Max Tegmark 171119, 190128-31, 190218
+        ! Same as symbolic_regress2.f except that it fits for the symbolic formula times an arbitrary constant.
         ! Loads templates.csv functions.dat and mystery.dat, returns winner.
-        ! scp -P2222 symbolic_regress3.f euler@tor.mit.edu:FEYNMAN
-        ! COMPILATION: a f 'f77 -O3 -o symbolic_regress3.x symbolic_regress3.f |& more'
-        ! SAMPLE USAGE: call symbolic_regress3.x 6ops.txt arity2templates.txt mystery012.dat results.dat
+        ! scp -P2222 symbolic_regress2.f euler@tor.mit.edu:FEYNMAN
+        ! COMPILATION: a f 'f77 -O3 -o symbolic_regress2.x symbolic_regress2.f |& more'
+        ! SAMPLE USAGE: call symbolic_regress2.x 4ops.txt arity2templates.txt mysteryB3.dat results.dat
         ! functions.dat contains a single line (say "0>+*-/") with the single-character symbols
         ! that will be used, drawn from this list:
         !
@@ -43,12 +43,12 @@
            integer arities(21), nvar, nvarmax, nmax, lnblnk
            parameter(nvarmax=20, nmax=10000000)
            real*8 f, newloss, minloss, maxloss, rmsloss, xy(nvarmax + 1, nmax), epsilon
-           real*8 ymin, prefactor, DL, DL2, DL3, limit
+           real*8 ymax, prefactor, DL, DL2, DL3, limit
            parameter(epsilon=0.00001)
            data arities/2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0/
            data functions/"+*-/><~\OJLESCANTR01P"/
            integer nn(0:2), ii(nmax), kk(nmax), radix(nmax)
-           integer ndata, i, j, n, jmin
+           integer ndata, i, j, n, jmax
            integer*8 nformulas
            logical done
            character*60 func(0:2), template
@@ -97,17 +97,17 @@
            write (*, '(1a24)') 'Loading mystery data....'
            call LoadMatrixTranspose(nvarmax + 1, nvar + 1, nmax, ndata, xy, mysteryfile)
            write (*, '(1a24,i8)') 'Number of examples......', ndata
-           ! Find min(abs(y)) to use for offset estimation:
-           jmin = 1
-           ymin = abs(xy(1, nvar + 1))
+           ! Find max(abs(y)) to use for normalization estimation (crucial to avoid data point where y~0):
+           jmax = 1
+           ymax = abs(xy(1, nvar + 1))
            do j = 2, ndata
-              if (ymin > abs(xy(nvar + 1, j))) then
-                 ymin = abs(xy(nvar + 1, j))
-                 jmin = j
+              if (ymax < abs(xy(nvar + 1, j))) then
+                 ymax = abs(xy(nvar + 1, j))
+                 jmax = j
               end if
            end do
-           print *, 'Mystery data has largest magnitude ', ymin, ' at j=', jmin
-           print *, 'Searching for best fit...'
+           print *, 'Mystery data has largest magnitude ', ymax, ' at j=', jmax
+           print *, 'symbolic_regress2.f90: Searching for best fit...'
            nformulas = 0
            minloss = 1.e6
            template = ''
@@ -133,11 +133,11 @@
               !write(*,'(1f20.12,99i3)') minloss, (ii(i),i=1,n), (kk(i),i=1,n)
               !write(*,'(1a24)') ops(1:n)
 
-              prefactor = xy(nvar + 1, jmin) - f(n, ii, ops, xy(1, jmin))
+              prefactor = xy(nvar + 1, jmax)/f(n, ii, ops, xy(1, jmax))
               j = 1
               maxloss = 0.
               do while ((maxloss .lt. minloss) .and. (j .le. ndata))
-                 newloss = abs(xy(nvar + 1, j) - (prefactor + f(n, ii, ops, xy(1, j))))
+                 newloss = abs(xy(nvar + 1, j) - prefactor*f(n, ii, ops, xy(1, j)))
             !!!!!print *,'newloss: ',j,newloss,xy(nvar,j),f(n,ii,ops,xy(1,j))
                  if (.not. ((newloss .ge. 0) .or. (newloss .le. 0))) newloss = 1.e30 ! This was a NaN :-)
                  if (maxloss .lt. newloss) maxloss = newloss
@@ -147,8 +147,7 @@
                  minloss = maxloss
                  rmsloss = 0.
                  do j = 1, ndata
-                    newloss = abs(xy(nvar + 1, j) - (prefactor + f(n, ii, ops, xy(1, j))))
-                    rmsloss = rmsloss + newloss**2
+                    rmsloss = rmsloss + (xy(nvar + 1, j) - prefactor*f(n, ii, ops, xy(1, j)))**2
                  end do
                  rmsloss = sqrt(rmsloss/ndata)
                  DL = log(nformulas*max(1., minloss/epsilon))/log(2.)
