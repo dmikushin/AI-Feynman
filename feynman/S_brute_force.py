@@ -14,6 +14,7 @@ import sympy as sp
 from sympy.parsing.sympy_parser import parse_expr
 
 from .resources import _get_resource
+from ._feynman import *
 
 # sep_type = 3 for add and 2 for mult and 1 for normal
 
@@ -43,12 +44,7 @@ def brute_force(pathdir, filename, BF_try_time, BF_ops_file_type, sep_type="*"):
         f.write(data)
 
     if sep_type == "*":
-        try:
-            subprocess.call(["feynman_sr2"], timeout=try_time)
-        except:
-            pass
+        symbolic_regress2()
     if sep_type == "+":
-        try:
-            subprocess.call(["feynman_sr3"], timeout=try_time)
-        except:
-            pass
+        symbolic_regress3()
+

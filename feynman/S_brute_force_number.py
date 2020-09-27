@@ -14,7 +14,7 @@ import sympy as sp
 from sympy.parsing.sympy_parser import parse_expr
 
 from .resources import _get_resource
-
+from ._feynman import *
 
 def brute_force_number(pathdir, filename):
     try_time = 2
@@ -38,9 +38,6 @@ def brute_force_number(pathdir, filename):
     with open("args.dat", 'w') as f:
         f.write(data)
 
-    try:
-        subprocess.call(["feynman_sr1"], timeout=try_time)
-    except:
-        pass
+    symbolic_regress1()
 
     return 1
