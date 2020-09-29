@@ -38,11 +38,13 @@
            character*60 comline, functions, ops, formula
            integer arities(21), nvar, nvarmax, nmax, lnblnk
            parameter(nvarmax=20, nmax=10000000)
-           real*8 newloss, minloss, maxloss, rmsloss, xy(nvarmax + 1, nmax), epsilon, DL, DL2, DL3
+           real*8 newloss, minloss, maxloss, rmsloss, epsilon, DL, DL2, DL3
+           real*8, allocatable :: xy(:,:)
            parameter(epsilon=0.00000001)
            data arities/2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0/
            data functions/"+*-/><~\OJLESCANTR01P"/
-           integer nn(0:2), ii(nmax), kk(nmax), radix(nmax)
+           integer nn(0:2)
+           integer, allocatable :: ii(:), kk(:), radix(:)
            integer ndata, i, j, n
            integer*8 nformulas
            logical done
@@ -84,6 +86,8 @@
            end do
 
            write (*, '(1a24)') 'Loading mystery data....'
+           allocate(xy(nvarmax + 1, nmax))
+           allocate(ii(nmax), kk(nmax), radix(nmax))
            call LoadMatrixTranspose(nvarmax + 1, nvar + 1, nmax, ndata, xy, mysteryfile)
            write (*, '(1a24,i8)') 'Number of examples......', ndata
 
@@ -141,6 +145,8 @@
            goto 555
 665        close (3)
            close (2)
+           deallocate(xy)
+           deallocate(ii, kk, radix)
            print *, 'All done: results in ', outfile
            return
 666        stop 'DEATH ERROR: missing file args.dat'
