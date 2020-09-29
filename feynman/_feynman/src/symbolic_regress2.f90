@@ -136,8 +136,10 @@
               prefactor = xy(nvar + 1, jmax)/f(n, ii, ops, xy(1, jmax))
               j = 1
               maxloss = 0.
+              rmsloss = 0.
               do while ((maxloss .lt. minloss) .and. (j .le. ndata))
                  newloss = abs(xy(nvar + 1, j) - prefactor*f(n, ii, ops, xy(1, j)))
+                 rmsloss = rmsloss + newloss**2
             !!!!!print *,'newloss: ',j,newloss,xy(nvar,j),f(n,ii,ops,xy(1,j))
                  if (.not. ((newloss .ge. 0) .or. (newloss .le. 0))) newloss = 1.e30 ! This was a NaN :-)
                  if (maxloss .lt. newloss) maxloss = newloss
@@ -145,9 +147,9 @@
               end do
               if (maxloss .lt. minloss) then ! We have a new best fit
                  minloss = maxloss
-                 rmsloss = 0.
-                 do j = 1, ndata
-                    rmsloss = rmsloss + (xy(nvar + 1, j) - prefactor*f(n, ii, ops, xy(1, j)))**2
+                 do j = j, ndata
+                    newloss = xy(nvar + 1, j) - prefactor*f(n, ii, ops, xy(1, j))
+                    rmsloss = rmsloss + newloss**2
                  end do
                  rmsloss = sqrt(rmsloss/ndata)
                  DL = log(nformulas*max(1., minloss/epsilon))/log(2.)
