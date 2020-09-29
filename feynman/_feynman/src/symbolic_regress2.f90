@@ -147,6 +147,7 @@
               end do
               if (maxloss .lt. minloss) then ! We have a new best fit
                  minloss = maxloss
+                 !$omp parallel do default(shared), private(newloss), reduction(+:rmsloss)
                  do j = j, ndata
                     newloss = xy(nvar + 1, j) - prefactor*f(n, ii, ops, xy(1, j))
                     rmsloss = rmsloss + newloss**2
