@@ -45,7 +45,7 @@
            data arities/2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0/
            data functions/"+*-/><~\OJLESCANTR01P"/
            integer nn(0:2)
-           integer, allocatable :: ii(:), kk(:), radix(:)
+           integer, allocatable :: ii(:), radix(:)
            integer ndata, i, j, n, jmin
            integer*8 nformulas
            logical done
@@ -94,7 +94,7 @@
 
            write (*, '(1a24)') 'Loading mystery data....'
            allocate(xy(nvarmax + 1, nmax))
-           allocate(ii(nmax), kk(nmax), radix(nmax))
+           allocate(ii(nmax), radix(nmax))
            call LoadMatrixTranspose(nvarmax + 1, nvar + 1, nmax, ndata, xy, mysteryfile)
            write (*, '(1a24,i8)') 'Number of examples......', ndata
            ! Find min(abs(y)) to use for offset estimation:
@@ -120,10 +120,30 @@
            do i = 1, n
               ii(i) = ichar(template(i:i)) - 48
               radix(i) = nn(ii(i))
-              kk(i) = 0
            end do
            done = .false.
-           do while ((minloss .gt. epsilon) .and. (.not. done))
+           call multiloop(n, radix, loss_loop, 0)
+           goto 555
+665        close (3)
+           close (2)
+           deallocate(xy)
+           deallocate(ii, radix)
+           print *, 'All done: results in ', outfile
+           return
+666        stop 'DEATH ERROR: missing file args.dat'
+668        print *, 'DEATH ERROR: missing file ', opsfile(1:lnblnk(opsfile))
+           stop
+670        print *, 'DEATH ERROR: missing file ', templatefile(1:lnblnk(templatefile))
+           stop
+
+        contains
+
+           function loss_loop(kk, unused)
+              implicit none
+              integer :: kk(*), unused, loss_loop
+
+              loss_loop = 0
+
               nformulas = nformulas + 1
               ! Analyze structure ii:
               do i = 1, n
@@ -137,21 +157,15 @@
               j = 1
               maxloss = 0.
               rmsloss = 0.
-              !$omp parallel default(shared), private(newloss)
-              !$omp do reduction(+:rmsloss), reduction(max:maxloss)
               do j = 1, ndata
                  newloss = abs(xy(nvar + 1, j) - (prefactor + f(n, ii, ops, xy(1, j))))
                  if (.not. ((newloss .ge. 0) .or. (newloss .le. 0))) newloss = 1.e30 ! This was a NaN :-)
                  rmsloss = rmsloss + newloss**2
                  maxloss = max(maxloss, newloss)
                  if (newloss .ge. minloss) then
-                    ! Beyond our expectation, no need to proceed any further
-                    !$omp cancel do
+                    exit
                  endif
-                 !$omp cancellation point do
               end do
-              !$omp end do
-              !$omp end parallel
               if (maxloss .lt. minloss) then ! We have a new best fit
                  minloss = maxloss
                  rmsloss = sqrt(rmsloss/ndata)
@@ -160,26 +174,18 @@
                  DL3 = (log(1.*nformulas) + sqrt(1.*ndata)*log(max(1., rmsloss/1.e-15)))/log(2.)
                  write (*, '(2f20.12,x,1a22,1i16,4f19.4)') limit(minloss), limit(prefactor), ops(1:n), &
                     nformulas, rmsloss, DL, DL2, DL3
+
                  write (3, '(2f20.12,x,1a22,1i16,4f19.4)') limit(minloss), limit(prefactor), ops(1:n), &
                     nformulas, rmsloss, DL, DL2, DL3
                  flush (3)
               end if
-              call multiloop(n, radix, kk, done)
-           end do
-           goto 555
-665        close (3)
-           close (2)
-           deallocate(xy)
-           deallocate(ii, kk, radix)
-           print *, 'All done: results in ', outfile
-           return
-666        stop 'DEATH ERROR: missing file args.dat'
-668        print *, 'DEATH ERROR: missing file ', opsfile(1:lnblnk(opsfile))
-           stop
-670        print *, 'DEATH ERROR: missing file ', templatefile(1:lnblnk(templatefile))
-           stop
 
-        contains
+              if (minloss .le. epsilon) then
+                 ! Stop multiloop
+                 loss_loop = 1
+              endif
+
+           end function loss_loop
 
            real*8 function limit(x)
               implicit none
@@ -262,25 +268,6 @@
               !write(*,'(9f10.5)') 666.,x(1),x(2),x(3),f
               return
            end function f
-
-           subroutine multiloop(n, bases, i, done)
-              ! Handles <n> nested loops with loop variables i(1),...i(n).
-              ! Example: With n=3, bases=2, repeated calls starting with i=(000) will return
-              ! 001, 010, 011, 100, 101, 110, 111, 000 (and done=.true. the last time).
-              ! All it's doing is counting in mixed radix specified by the array <bases>.
-              implicit none
-              integer n, bases(n), i(n), k
-              logical done
-              done = .false.
-              k = 1
-555           i(k) = i(k) + 1
-              if (i(k) .lt. bases(k)) return
-              i(k) = 0
-              k = k + 1
-              if (k .le. n) goto 555
-              done = .true.
-              return
-           end subroutine multiloop
 
            subroutine LoadMatrixTranspose(nd, n, mmax, m, A, f)
               ! Reads the n x m matrix A from the file named f, stored as its transpose
