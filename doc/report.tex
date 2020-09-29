@@ -1,0 +1,54 @@
+%% Template for ENG 401 reports
+%% by Robin Turner
+%% Adapted from the IEEE peer review template
+
+\documentclass[peerreview]{IEEEtran}
+\usepackage{cite} % Tidies up citation numbers.
+\usepackage{url} % Provides better formatting of URLs.
+\usepackage[utf8]{inputenc} % Allows Turkish characters.
+\usepackage{booktabs} % Allows the use of \toprule, \midrule and \bottomrule in tables for horizontal lines
+\usepackage{graphicx}
+
+\begin{document}
+
+\setcounter{page}{1}
+
+\title{Performance Optimization of the AI Feynman Symbolic Regression code}
+
+\author{Dmitry Mikushin \\
+Applied Parallel Computing LLC \\
+dmitry@parallel-computing.pro \\
+}
+\date{\today}
+
+\maketitle
+\tableofcontents
+
+\begin{abstract}
+This report presents the AI Feynman programming code performance optimization.
+\end{abstract}
+
+\section{Overview}
+
+AI Feynman \cite{aifeynman} is a neural network package for reconstructing original numerical expression (formula) from the resulting dataset.
+
+\section{Program Design}
+
+The program code is organized into the preprocessing (\emph{feature extraction}) and neural network \emph{training} phases.
+
+The \emph{feature extraction} is given as a massive bruteforce evaluation of arbitrary basis function combinations. In order to maintain acceptable running times, this phase is implemented as a native code (Fortran). Moreover, each instance of bruteforce evaluation is limited by 30 seconds.
+
+\section{Optimization}
+
+AAA
+
+\section{Preliminary results}
+
+AAA
+
+\begin{thebibliography}{1}
+\bibitem{aifeynman}Udrescu, S.M., and Tegmark, M. 2020. AI Feynman: A physics-inspired method for symbolic regression. Science Advances, 6(16), p.eaay2631.
+\end{thebibliography}
+
+\end{document}
+
