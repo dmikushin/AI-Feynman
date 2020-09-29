@@ -122,7 +122,7 @@
               radix(i) = nn(ii(i))
            end do
            done = .false.
-           call multiloop(n, radix, loss_loop, 0)
+           call multiloop(n, radix, loss_loop, minloss)
            goto 555
 665        close (3)
            close (2)
@@ -138,9 +138,10 @@
 
         contains
 
-           function loss_loop(kk, unused)
+           function loss_loop(kk, minloss)
               implicit none
-              integer :: kk(*), unused, loss_loop
+              integer :: kk(*), loss_loop
+              real*8 :: minloss
 
               loss_loop = 0
 
@@ -168,13 +169,13 @@
               end do
               if (maxloss .lt. minloss) then ! We have a new best fit
                  minloss = maxloss
+                 !loss_loop = 2
                  rmsloss = sqrt(rmsloss/ndata)
                  DL = log(nformulas*max(1., minloss/epsilon))/log(2.)
                  DL2 = log(nformulas*max(1., minloss/1.e-15))/log(2.)
                  DL3 = (log(1.*nformulas) + sqrt(1.*ndata)*log(max(1., rmsloss/1.e-15)))/log(2.)
                  write (*, '(2f20.12,x,1a22,1i16,4f19.4)') limit(minloss), limit(prefactor), ops(1:n), &
                     nformulas, rmsloss, DL, DL2, DL3
-
                  write (3, '(2f20.12,x,1a22,1i16,4f19.4)') limit(minloss), limit(prefactor), ops(1:n), &
                     nformulas, rmsloss, DL, DL2, DL3
                  flush (3)
