@@ -137,21 +137,23 @@
               j = 1
               maxloss = 0.
               rmsloss = 0.
-              do while ((maxloss .lt. minloss) .and. (j .le. ndata))
+              !$omp parallel default(shared), private(newloss)
+              !$omp do reduction(+:rmsloss), reduction(max:maxloss)
+              do j = 1, ndata
                  newloss = abs(xy(nvar + 1, j) - (prefactor + f(n, ii, ops, xy(1, j))))
-                 rmsloss = rmsloss + newloss**2
-            !!!!!print *,'newloss: ',j,newloss,xy(nvar,j),f(n,ii,ops,xy(1,j))
                  if (.not. ((newloss .ge. 0) .or. (newloss .le. 0))) newloss = 1.e30 ! This was a NaN :-)
-                 if (maxloss .lt. newloss) maxloss = newloss
-                 j = j + 1
+                 rmsloss = rmsloss + newloss**2
+                 maxloss = max(maxloss, newloss)
+                 if (newloss .ge. minloss) then
+                    ! Beyond our expectation, no need to proceed any further
+                    !$omp cancel do
+                 endif
+                 !$omp cancellation point do
               end do
+              !$omp end do
+              !$omp end parallel
               if (maxloss .lt. minloss) then ! We have a new best fit
                  minloss = maxloss
-                 !$omp parallel do default(shared), private(newloss), reduction(+:rmsloss)
-                 do j = j, ndata
-                    newloss = xy(nvar + 1, j) - (prefactor + f(n, ii, ops, xy(1, j)))
-                    rmsloss = rmsloss + newloss**2
-                 end do
                  rmsloss = sqrt(rmsloss/ndata)
                  DL = log(nformulas*max(1., minloss/epsilon))/log(2.)
                  DL2 = log(nformulas*max(1., minloss/1.e-15))/log(2.)
