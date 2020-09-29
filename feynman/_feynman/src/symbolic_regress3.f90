@@ -108,7 +108,7 @@
            end do
            print *, 'Mystery data has largest magnitude ', ymin, ' at j=', jmin
            print *, 'symbolic_regress3.f90: Searching for best fit...'
-           nformulas = 0
+           nformulas = 1
            minloss = 1.e6
            template = ''
            ops = '===================='
@@ -122,7 +122,7 @@
               radix(i) = nn(ii(i))
            end do
            done = .false.
-           call multiloop(n, radix, loss_loop, minloss)
+           call multiloop(n, radix, loss_loop, minloss, nformulas)
            goto 555
 665        close (3)
            close (2)
@@ -138,14 +138,14 @@
 
         contains
 
-           function loss_loop(kk, minloss)
+           function loss_loop(kk, nformulas, minloss)
               implicit none
               integer :: kk(*), loss_loop
+              integer*8 :: nformulas
               real*8 :: minloss
 
               loss_loop = 0
 
-              nformulas = nformulas + 1
               ! Analyze structure ii:
               do i = 1, n
                  ops(i:i) = func(ii(i)) (1 + kk(i):1 + kk(i))
