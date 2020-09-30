@@ -121,7 +121,7 @@
               radix(i) = nn(ii(i))
            end do
            done = .false.
-           call multiloop(n, radix, loss_loop, minloss, nformulas)
+           call multiloop(n, radix, loss_loop, loss_report, minloss, nformulas)
            goto 555
 665        close (3)
            close (2)
@@ -137,15 +137,14 @@
 
         contains
 
-           function loss_loop(kk, nformulas, minloss)
+           subroutine loss_loop(kk, iformula, iformula_out, prefactor_out, minloss_out, rmsloss_out, ops_out)
               implicit none
-              integer :: kk(*), loss_loop
-              integer*8, value :: nformulas
-              real*8 :: newloss, maxloss, rmsloss, minloss
-              character*60 :: ops
-              real*8 :: prefactor, DL, DL2, DL3
-
-              loss_loop = 0
+              integer :: kk(*)
+              integer*8, value :: iformula
+              integer*8 :: iformula_out
+              real*8 :: prefactor_out, minloss_out, rmsloss_out
+              character*60 :: ops, ops_out
+              real*8 :: prefactor, newloss, maxloss, rmsloss
 
               ! Analyze structure ii:
               do i = 1, n
@@ -164,25 +163,39 @@
                     exit
                  endif
               end do
-              if (maxloss .lt. minloss) then ! We have a new best fit
-                 minloss = maxloss
-                 rmsloss = sqrt(rmsloss/ndata)
-                 DL = log(nformulas*max(1., minloss/epsilon))/log(2.)
-                 DL2 = log(nformulas*max(1., minloss/1.e-15))/log(2.)
-                 DL3 = (log(1.*nformulas) + sqrt(1.*ndata)*log(max(1., rmsloss/1.e-15)))/log(2.)
-                 write (*, '(2f20.12,x,1a22,1i16,4f19.4)') limit(minloss), limit(prefactor), ops(1:n), &
-                    nformulas, rmsloss, DL, DL2, DL3
-                 write (3, '(2f20.12,x,1a22,1i16,4f19.4)') limit(minloss), limit(prefactor), ops(1:n), &
-                    nformulas, rmsloss, DL, DL2, DL3
-                 flush (3)
+              if (maxloss .lt. minloss) then
+                 ! We have a new best fit
+                 minloss_out = maxloss
+                 rmsloss_out = sqrt(rmsloss/ndata)
+                 iformula_out = iformula
+                 ops_out = ops
               end if
 
-              if (minloss .le. epsilon) then
-                 ! Stop multiloop
-                 loss_loop = 1
-              endif
+              ! TODO
+              ! if (minloss .le. epsilon) then
+              ! Stop multiloop
+              ! endif
 
-           end function loss_loop
+           end subroutine loss_loop
+
+           subroutine loss_report(iformula, prefactor, minloss, rmsloss, ops)
+              implicit none
+
+              integer*8, value :: iformula
+              real*8, value :: prefactor, minloss, rmsloss
+              character*60 :: ops
+              real*8 :: DL, DL2, DL3
+
+              DL = log(iformula*max(1., minloss/epsilon))/log(2.)
+              DL2 = log(iformula*max(1., minloss/1.e-15))/log(2.)
+              DL3 = (log(1.*iformula) + sqrt(1.*ndata)*log(max(1., rmsloss/1.e-15)))/log(2.)
+              write (*, '(2f20.12,x,1a22,1i16,4f19.4)') limit(minloss), limit(prefactor), ops(1:n), &
+                 iformula, rmsloss, DL, DL2, DL3
+              write (3, '(2f20.12,x,1a22,1i16,4f19.4)') limit(minloss), limit(prefactor), ops(1:n), &
+                 iformula, rmsloss, DL, DL2, DL3
+              flush (3)
+
+           end subroutine loss_report
 
            real*8 function limit(x)
               implicit none
