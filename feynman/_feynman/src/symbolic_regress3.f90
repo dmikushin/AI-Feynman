@@ -38,9 +38,9 @@
            character*60 comline, functions, ops, formula
            integer arities(21), nvar, nvarmax, nmax, lnblnk
            parameter(nvarmax=20, nmax=10000000)
-           real*8 newloss, minloss, maxloss, rmsloss, epsilon
+           real*8 minloss, epsilon
            real*8, allocatable :: xy(:,:)
-           real*8 ymin, prefactor, DL, DL2, DL3
+           real*8 ymin
            parameter(epsilon=0.00001)
            data arities/2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0/
            data functions/"+*-/><~\OJLESCANTR01P"/
@@ -111,7 +111,6 @@
            nformulas = 1
            minloss = 1.e6
            template = ''
-           ops = '===================='
            open (2, file=templatefile, status='old', err=670)
            open (3, file=outfile)
 555        read (2, '(1a60)', end=665) template
@@ -142,20 +141,18 @@
               implicit none
               integer :: kk(*), loss_loop
               integer*8, value :: nformulas
-              real*8 :: minloss
+              real*8 :: newloss, maxloss, rmsloss, minloss
+              character*60 :: ops
+              real*8 :: prefactor, DL, DL2, DL3
 
               loss_loop = 0
 
               ! Analyze structure ii:
               do i = 1, n
                  ops(i:i) = func(ii(i)) (1 + kk(i):1 + kk(i))
-                 !print *,'TEST ',i,ii(i), func(ii(i))
               end do
-              !write(*,'(1f20.12,99i3)') minloss, (ii(i),i=1,n), (kk(i),i=1,n)
-              !write(*,'(1a24)') ops(1:n)
 
               prefactor = xy(nvar + 1, jmin) - f(n, ii, ops, xy(1, jmin))
-              j = 1
               maxloss = 0.
               rmsloss = 0.
               do j = 1, ndata
@@ -169,7 +166,6 @@
               end do
               if (maxloss .lt. minloss) then ! We have a new best fit
                  minloss = maxloss
-                 !loss_loop = 2
                  rmsloss = sqrt(rmsloss/ndata)
                  DL = log(nformulas*max(1., minloss/epsilon))/log(2.)
                  DL2 = log(nformulas*max(1., minloss/1.e-15))/log(2.)
