@@ -4,6 +4,16 @@ project(_feynman)
 
 enable_language(Fortran)
 
+if (UNIX)
+# Use $ORIGIN or @loader_path, which allow to pick up
+# dependencies relative to the executable folder
+if (APPLE)
+set(CMAKE_INSTALL_RPATH "@loader_path")
+else()
+set(CMAKE_INSTALL_RPATH "$ORIGIN")
+endif()
+endif()
+
 # Enforce CMake to use the same version of Python, as used by setup.py script
 if ("x${Python3_VERSION}" STREQUAL "x")
 find_package(Python3 COMPONENTS Interpreter Development)
@@ -36,7 +46,9 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none -g")
 file(GLOB SRCS "src/*.f90" "src/*.cpp")
 
 pybind11_add_module(${PROJECT_NAME} ${SRCS})
-target_link_libraries(${PROJECT_NAME} PRIVATE ThrustTBB)
+target_link_libraries(${PROJECT_NAME} PRIVATE Thrust::Thrust ThrustTBB)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION .)
-
+install(FILES $<TARGET_FILE:tbb> DESTINATION .)
+install(FILES $<TARGET_FILE:tbbmalloc> DESTINATION .)
+install(FILES $<TARGET_FILE:tbbmalloc_proxy> DESTINATION .)

@@ -137,11 +137,9 @@
 
         contains
 
-           subroutine loss_loop(kk, iformula, iformula_out, prefactor_out, minloss_out, rmsloss_out, ops_out)
+           subroutine loss_loop(kk, prefactor_out, minloss_out, rmsloss_out, ops_out)
               implicit none
               integer :: kk(*)
-              integer*8, value :: iformula
-              integer*8 :: iformula_out
               real*8 :: prefactor_out, minloss_out, rmsloss_out
               character*60 :: ops, ops_out
               real*8 :: prefactor, newloss, maxloss, rmsloss
@@ -167,7 +165,6 @@
                  ! We have a new best fit
                  minloss_out = maxloss
                  rmsloss_out = sqrt(rmsloss/ndata)
-                 iformula_out = iformula
                  ops_out = ops
               end if
 
