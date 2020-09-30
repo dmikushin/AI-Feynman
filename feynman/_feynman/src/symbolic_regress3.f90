@@ -141,7 +141,7 @@
            function loss_loop(kk, nformulas, minloss)
               implicit none
               integer :: kk(*), loss_loop
-              integer*8 :: nformulas
+              integer*8, value :: nformulas
               real*8 :: minloss
 
               loss_loop = 0
