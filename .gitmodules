@@ -1,3 +1,9 @@
 [submodule "feynman/_feynman/ThirdParty/pybind11"]
 	path = feynman/_feynman/ThirdParty/pybind11
 	url = https://github.com/pybind/pybind11.git
+[submodule "feynman/_feynman/ThirdParty/thrust"]
+	path = feynman/_feynman/ThirdParty/thrust
+	url = https://github.com/NVIDIA/thrust.git
+[submodule "feynman/_feynman/ThirdParty/tbb"]
+	path = feynman/_feynman/ThirdParty/tbb
+	url = https://github.com/wjakob/tbb.git

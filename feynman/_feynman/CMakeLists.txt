@@ -15,14 +15,28 @@ set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 set(PYBIND11_PYTHON_VERSION ${Python3_VERSION})
 add_subdirectory(ThirdParty/pybind11 EXCLUDE_FROM_ALL)
 
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none -g")
+set(TBB_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+add_subdirectory(ThirdParty/tbb EXCLUDE_FROM_ALL)
+set_target_properties(tbb PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+set_target_properties(tbbmalloc PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+set_target_properties(tbbmalloc_proxy PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+set(TBB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/tbb/include)
+set(TBB_LIBRARIES tbb tbbmalloc tbbmalloc_proxy)
+add_library(Thrust::TBB INTERFACE IMPORTED)
+set_target_properties(Thrust::TBB PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${TBB_INCLUDE_DIR}")
+target_link_libraries(Thrust::TBB INTERFACE "${TBB_LIBRARIES}")
 
-find_package(OpenMP REQUIRED)
+set(THRUST_REQUIRED_SYSTEMS TBB)
+add_subdirectory(ThirdParty/thrust EXCLUDE_FROM_ALL)
+_thrust_setup_system(TBB)
+thrust_create_target(ThrustTBB HOST TBB DEVICE TBB)
+
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none -g")
 
 file(GLOB SRCS "src/*.f90" "src/*.cpp")
 
 pybind11_add_module(${PROJECT_NAME} ${SRCS})
-target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_Fortran)
+target_link_libraries(${PROJECT_NAME} PRIVATE ThrustTBB)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION .)
 
