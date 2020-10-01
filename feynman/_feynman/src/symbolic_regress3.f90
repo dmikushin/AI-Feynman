@@ -143,6 +143,7 @@
               real*8 :: prefactor_out, minloss_out, rmsloss_out
               character*60 :: ops, ops_out
               real*8 :: prefactor, newloss, maxloss, rmsloss
+              integer :: i, j
 
               ! Analyze structure ii:
               do i = 1, n
@@ -163,6 +164,7 @@
               end do
               if (maxloss .lt. minloss) then
                  ! We have a new best fit
+                 prefactor_out = prefactor
                  minloss_out = maxloss
                  rmsloss_out = sqrt(rmsloss/ndata)
                  ops_out = ops

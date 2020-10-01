@@ -34,9 +34,14 @@ struct LossData
 	double minloss;
 	double rmsloss;
 	char ops[60];
+	bool evaluated = false;
 
-	LossData(int64_t iformula_) : minloss(c->minloss), iformula(iformula_)
+	LossData(int64_t iformula_) : minloss(c->minloss), iformula(iformula_) { }
+
+	LossData& eval()
 	{
+		if (evaluated) return *this;
+
 		vector<int> i(c->n);
 
 		// Decode multi-index from a planar index.
@@ -49,23 +54,76 @@ struct LossData
                 }
 
                 c->loop_body(reinterpret_cast<int*>(&i[0]), &prefactor, &minloss, &rmsloss, ops);
+
+		evaluated = true;
+		return *this;
 	}
 
-	operator int64_t() { return 0; }
+	//operator int64_t() { return 0; }
 
-	LossData operator++() { return LossData(iformula + 1); }
+	LossData& operator++()
+	{
+		iformula++;
+		evaluated = false;
+		return *this;
+	}
 
-	LossData operator+=(int n) { return LossData(iformula + n); }
+	LossData operator+(const LossData& other) const
+        {
+                if (this->minloss < other.minloss)
+                        return *this;
+
+                return other;
+        }
 };
 
-struct LossDataReduce
-{
-	LossData operator()(const LossData& a, const LossData& b) const
-	{
-		if (a.minloss < b.minloss)
-			return a;
+struct MultiloopIterator;
 
-		return b;
+namespace thrust {
+
+template<>
+struct iterator_system<MultiloopIterator>
+{
+        using type = thrust::device_system_tag;
+};
+
+template<>
+struct iterator_traits<MultiloopIterator>
+{
+        typedef std::ptrdiff_t difference_type;
+        typedef MultiloopIterator value_type;
+        typedef MultiloopIterator* pointer;
+        typedef MultiloopIterator& reference;
+        typedef std::random_access_iterator_tag iterator_category;
+};
+
+}
+
+struct MultiloopIterator
+{
+	LossData lossData;
+
+	MultiloopIterator(int64_t iformula) : lossData(iformula) { }
+
+	LossData& operator*()
+	{
+		return lossData.eval();
+	}
+
+	MultiloopIterator& operator++()
+	{
+		++lossData;
+		return *this;
+	}
+
+	friend typename thrust::iterator_traits<MultiloopIterator>::difference_type operator-(MultiloopIterator a, MultiloopIterator b)
+	{
+		return (*a).iformula - (*b).iformula;
+	}
+
+	friend typename thrust::iterator_traits<MultiloopIterator>::difference_type operator+(MultiloopIterator a, int64_t b)
+	{
+		return (*a).iformula + b;
 	}
 };
 
@@ -80,9 +138,8 @@ extern "C" void multiloop_(int* n_, int* bases, loop_body_t loop_body, report_bo
 	int64_t nformulas = *nformulas_;
 	c.reset(new LossDataCommon(n, count, bases, *minloss, loop_body));
 	LossData result = thrust::reduce(
-		thrust::make_counting_iterator(LossData(0)),
-	       	thrust::make_counting_iterator(LossData(count)),
-		LossData(0), LossDataReduce());
+		MultiloopIterator(0), MultiloopIterator(count),
+		LossData(0), thrust::plus<LossData>());
 
 	if (*minloss > result.minloss)
 	{

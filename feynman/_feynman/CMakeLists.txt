@@ -4,6 +4,8 @@ project(_feynman)
 
 enable_language(Fortran)
 
+#set(CMAKE_BUILD_TYPE Debug)
+
 if (UNIX)
 # Use $ORIGIN or @loader_path, which allow to pick up
 # dependencies relative to the executable folder
