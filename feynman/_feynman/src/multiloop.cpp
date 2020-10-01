@@ -16,13 +16,21 @@ struct LossDataCommon
 {
 	int n;
 	int64_t count;
-	int* bases;
+	vector<int64_t> divisors;
 	double minloss;
 
 	loop_body_t loop_body;
 
-	LossDataCommon(int n_,  int64_t count_, int* bases_, double minloss_, loop_body_t loop_body_) :
-		n(n_), count(count_), bases(bases_), minloss(minloss_), loop_body(loop_body_) { }
+	LossDataCommon(int n_,  int64_t count_, int* bases, double minloss_, loop_body_t loop_body_) :
+		n(n_), count(count_), divisors(n_), minloss(minloss_), loop_body(loop_body_)
+	{
+		int64_t divisor = count;
+		for (int k = 0; k < n; k++)
+		{
+			divisor /= bases[k];
+			divisors[k] = divisor;
+		}
+	}
 };
 
 unique_ptr<LossDataCommon> c;
@@ -45,21 +53,19 @@ struct LossData
 		vector<int> i(c->n);
 
 		// Decode multi-index from a planar index.
-                int64_t base = iformula, divisor = c->count;
-                for (int k = 0; k < c->n; k++)
-                {
-                        divisor /= c->bases[k];
-                        i[k] = base / divisor;
-                        base -= i[k] * divisor;
-                }
+		int64_t nominator = iformula;
+		for (int k = 0; k < c->n; k++)
+		{
+			int64_t divisor = c->divisors[k];
+			i[k] = nominator / divisor;
+			nominator -= i[k] * divisor;
+		}
 
-                c->loop_body(reinterpret_cast<int*>(&i[0]), &prefactor, &minloss, &rmsloss, ops);
+		c->loop_body(reinterpret_cast<int*>(&i[0]), &prefactor, &minloss, &rmsloss, ops);
 
 		evaluated = true;
 		return *this;
 	}
-
-	//operator int64_t() { return 0; }
 
 	LossData& operator++()
 	{
@@ -69,12 +75,12 @@ struct LossData
 	}
 
 	LossData operator+(const LossData& other) const
-        {
-                if (this->minloss < other.minloss)
-                        return *this;
+	{
+		if (this->minloss < other.minloss)
+			return *this;
 
-                return other;
-        }
+		return other;
+	}
 };
 
 struct MultiloopIterator;
@@ -84,17 +90,17 @@ namespace thrust {
 template<>
 struct iterator_system<MultiloopIterator>
 {
-        using type = thrust::device_system_tag;
+	using type = thrust::device_system_tag;
 };
 
 template<>
 struct iterator_traits<MultiloopIterator>
 {
-        typedef std::ptrdiff_t difference_type;
-        typedef MultiloopIterator value_type;
-        typedef MultiloopIterator* pointer;
-        typedef MultiloopIterator& reference;
-        typedef std::random_access_iterator_tag iterator_category;
+	typedef std::ptrdiff_t difference_type;
+	typedef MultiloopIterator value_type;
+	typedef MultiloopIterator* pointer;
+	typedef MultiloopIterator& reference;
+	typedef std::random_access_iterator_tag iterator_category;
 };
 
 }
@@ -131,9 +137,9 @@ extern "C" void multiloop_(int* n_, int* bases, loop_body_t loop_body, report_bo
 	double* minloss, int64_t* nformulas_)
 {
 	int n = *n_;
-        int64_t count = 1;
-        for (int k = 0; k < n; k++)
-                count *= bases[k];
+	int64_t count = 1;
+	for (int k = 0; k < n; k++)
+		count *= bases[k];
 
 	int64_t nformulas = *nformulas_;
 	c.reset(new LossDataCommon(n, count, bases, *minloss, loop_body));
