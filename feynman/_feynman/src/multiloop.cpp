@@ -139,12 +139,12 @@ struct MultiloopIterator
 
 	friend difference_type operator-(MultiloopIterator<T> a, MultiloopIterator<T> b)
 	{
-		return (*a).iformula - (*b).iformula;
+		return a.lossData.iformula - b.lossData.iformula;
 	}
 
 	friend difference_type operator+(MultiloopIterator<T> a, T b)
 	{
-		return (*a).iformula + b;
+		return a.lossData.iformula + b;
 	}
 };
 
@@ -154,7 +154,7 @@ LossData<T> multiloop(int n, T count, int* bases, loop_body_t loop_body, report_
 {
         LossData<T> result = thrust::reduce(
                 MultiloopIterator<T>(0), MultiloopIterator<T>(count),
-                LossData<T>(0), thrust::plus<LossData<T> >());
+                LossData<T>(0).eval(), thrust::plus<LossData<T> >());
 
         if (*minloss > result.minloss)
         {
