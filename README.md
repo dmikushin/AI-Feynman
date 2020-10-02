@@ -56,7 +56,7 @@ Build and install the package using one of the three build options below.
 
 ```
 git clone https://github.com/dmikushin/AI-Feynman.git
-cd AI-Feynman-package
+cd AI-Feynman
 python3 setup.py bdist_wheel -G Ninja
 ```
 
