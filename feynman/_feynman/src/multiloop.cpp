@@ -12,19 +12,20 @@ typedef void (*report_body_t)(int64_t iformula,
 
 using namespace std;
 
+template<typename T>
 struct LossDataCommon
 {
 	int n;
-	int64_t count;
-	vector<int64_t> divisors;
+	T count;
+	vector<T> divisors;
 	double minloss;
 
 	loop_body_t loop_body;
 
-	LossDataCommon(int n_,  int64_t count_, int* bases, double minloss_, loop_body_t loop_body_) :
+	LossDataCommon(int n_, T count_, int* bases, double minloss_, loop_body_t loop_body_) :
 		n(n_), count(count_), divisors(n_), minloss(minloss_), loop_body(loop_body_)
 	{
-		int64_t divisor = count;
+		T divisor = count;
 		for (int k = 0; k < n; k++)
 		{
 			divisor /= bases[k];
@@ -33,30 +34,40 @@ struct LossDataCommon
 	}
 };
 
-unique_ptr<LossDataCommon> c;
+unique_ptr<LossDataCommon<int32_t> > c32;
+unique_ptr<LossDataCommon<int64_t> > c64;
 
+template<typename T>
 struct LossData
 {
-	int64_t iformula;
+	T iformula;
 	double prefactor;
 	double minloss;
 	double rmsloss;
 	char ops[60];
 	bool evaluated = false;
 
-	LossData(int64_t iformula_) : minloss(c->minloss), iformula(iformula_) { }
+	LossData(T iformula_) : iformula(iformula_) { }
 
 	LossData& eval()
 	{
 		if (evaluated) return *this;
 
+		LossDataCommon<T>* c = nullptr;
+		if (sizeof(T) == sizeof(int32_t))
+			c = reinterpret_cast<LossDataCommon<T>*>(c32.get());
+		else
+			c = reinterpret_cast<LossDataCommon<T>*>(c64.get());
+
+		minloss = c->minloss;
+
 		vector<int> i(c->n);
 
 		// Decode multi-index from a planar index.
-		int64_t nominator = iformula;
+		T nominator = iformula;
 		for (int k = 0; k < c->n; k++)
 		{
-			int64_t divisor = c->divisors[k];
+			T divisor = c->divisors[k];
 			i[k] = nominator / divisor;
 			nominator -= i[k] * divisor;
 		}
@@ -83,55 +94,77 @@ struct LossData
 	}
 };
 
+template<typename T>
 struct MultiloopIterator;
 
 namespace thrust {
 
-template<>
-struct iterator_system<MultiloopIterator>
+template<typename T>
+struct iterator_system<MultiloopIterator<T> >
 {
 	using type = thrust::device_system_tag;
 };
 
-template<>
-struct iterator_traits<MultiloopIterator>
+template<typename T>
+struct iterator_traits<MultiloopIterator<T> >
 {
-	typedef std::ptrdiff_t difference_type;
-	typedef MultiloopIterator value_type;
-	typedef MultiloopIterator* pointer;
-	typedef MultiloopIterator& reference;
+	typedef T difference_type;
+	typedef MultiloopIterator<T> value_type;
+	typedef MultiloopIterator<T>* pointer;
+	typedef MultiloopIterator<T>& reference;
 	typedef std::random_access_iterator_tag iterator_category;
 };
 
 }
 
+template<typename T>
 struct MultiloopIterator
 {
-	LossData lossData;
+	using difference_type = typename thrust::iterator_traits<MultiloopIterator<T> >::difference_type;
 
-	MultiloopIterator(int64_t iformula) : lossData(iformula) { }
+	LossData<T> lossData;
 
-	LossData& operator*()
+	MultiloopIterator(T iformula) : lossData(iformula) { }
+
+	LossData<T>& operator*()
 	{
 		return lossData.eval();
 	}
 
-	MultiloopIterator& operator++()
+	MultiloopIterator<T>& operator++()
 	{
 		++lossData;
 		return *this;
 	}
 
-	friend typename thrust::iterator_traits<MultiloopIterator>::difference_type operator-(MultiloopIterator a, MultiloopIterator b)
+	friend difference_type operator-(MultiloopIterator<T> a, MultiloopIterator<T> b)
 	{
 		return (*a).iformula - (*b).iformula;
 	}
 
-	friend typename thrust::iterator_traits<MultiloopIterator>::difference_type operator+(MultiloopIterator a, int64_t b)
+	friend difference_type operator+(MultiloopIterator<T> a, T b)
 	{
 		return (*a).iformula + b;
 	}
 };
+
+template<typename T>
+LossData<T> multiloop(int n, T count, int* bases, loop_body_t loop_body, report_body_t report_body,
+	double* minloss, int64_t* nformulas_)
+{
+        LossData<T> result = thrust::reduce(
+                MultiloopIterator<T>(0), MultiloopIterator<T>(count),
+                LossData<T>(0), thrust::plus<LossData<T> >());
+
+        if (*minloss > result.minloss)
+        {
+                // Report new best fit. 
+                report_body(result.iformula + *nformulas_, result.prefactor, result.minloss, result.rmsloss, result.ops);
+                *minloss = result.minloss;
+        }
+
+	*nformulas_ += count;
+}
 
 extern "C" void multiloop_(int* n_, int* bases, loop_body_t loop_body, report_body_t report_body,
 	double* minloss, int64_t* nformulas_)
@@ -141,19 +174,15 @@ extern "C" void multiloop_(int* n_, int* bases, loop_body_t loop_body, report_bo
 	for (int k = 0; k < n; k++)
 		count *= bases[k];
 
-	int64_t nformulas = *nformulas_;
-	c.reset(new LossDataCommon(n, count, bases, *minloss, loop_body));
-	LossData result = thrust::reduce(
-		MultiloopIterator(0), MultiloopIterator(count),
-		LossData(0), thrust::plus<LossData>());
-
-	if (*minloss > result.minloss)
+	if (count < INT_MAX)
 	{
-		// Report new best fit. 
-		report_body(result.iformula + nformulas, result.prefactor, result.minloss, result.rmsloss, result.ops);
-		*minloss = result.minloss;
+		c32.reset(new LossDataCommon<int32_t>(n, count, bases, *minloss, loop_body));
+		multiloop<int32_t>(*n_, (int32_t)count, bases, loop_body, report_body, minloss, nformulas_);
 	}
-
-	*nformulas_ += count;
+	else
+	{
+		c64.reset(new LossDataCommon<int64_t>(n, count, bases, *minloss, loop_body));
+		multiloop<int64_t>(*n_, count, bases, loop_body, report_body, minloss, nformulas_);
+	}
 }
 
