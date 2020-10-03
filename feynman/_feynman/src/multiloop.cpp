@@ -49,7 +49,7 @@ struct LossData
 
 	LossData(T iformula_) : iformula(iformula_) { }
 
-	LossData& eval()
+	LossData<T>& eval()
 	{
 		if (evaluated) return *this;
 
@@ -78,14 +78,14 @@ struct LossData
 		return *this;
 	}
 
-	LossData& operator++()
+	LossData<T>& operator++()
 	{
 		iformula++;
 		evaluated = false;
 		return *this;
 	}
 
-	LossData operator+(const LossData& other) const
+	const LossData<T>& operator+(const LossData<T>& other) const
 	{
 		if (this->minloss < other.minloss)
 			return *this;
@@ -137,12 +137,12 @@ struct MultiloopIterator
 		return *this;
 	}
 
-	friend difference_type operator-(MultiloopIterator<T> a, MultiloopIterator<T> b)
+	friend difference_type operator-(const MultiloopIterator<T>& a, const MultiloopIterator<T>& b)
 	{
 		return a.lossData.iformula - b.lossData.iformula;
 	}
 
-	friend difference_type operator+(MultiloopIterator<T> a, T b)
+	friend difference_type operator+(const MultiloopIterator<T>& a, T b)
 	{
 		return a.lossData.iformula + b;
 	}
