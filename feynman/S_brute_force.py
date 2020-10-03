@@ -44,7 +44,18 @@ def brute_force(pathdir, filename, BF_try_time, BF_ops_file_type, sep_type="*"):
         f.write(data)
 
     if sep_type == "*":
-        symbolic_regress2()
+        if try_time == 0:
+            symbolic_regress2()
+        else:
+            try:
+                subprocess.call(["feynman_sr2"], timeout=try_time)
+            except:
+                pass
     if sep_type == "+":
-        symbolic_regress3()
-
+        if try_time == 0:
+            symbolic_regress3()
+        else:
+            try:
+                subprocess.call(["feynman_sr3"], timeout=try_time)
+            except:
+                pass
