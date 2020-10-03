@@ -143,7 +143,7 @@
                  write (3, '(1f20.12,x,1a22,1i16,4f19.4)') minloss, ops(1:n), nformulas, rmsloss, DL, DL2, DL3
                  flush (3)
               end if
-              call multiloop(n, radix, kk, done)
+              call multiloop_legacy(n, radix, kk, done)
            end do
            goto 555
 665        close (3)

@@ -162,7 +162,7 @@
                     nformulas, rmsloss, DL, DL2, DL3
                  flush (3)
               end if
-              call multiloop(n, radix, kk, done)
+              call multiloop_legacy(n, radix, kk, done)
            end do
            goto 555
 665        close (3)
