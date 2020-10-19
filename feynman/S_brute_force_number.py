@@ -38,12 +38,9 @@ def brute_force_number(pathdir, filename):
     with open("args.dat", 'w') as f:
         f.write(data)
 
-    if try_time == 0:
-        symbolic_regress1()
-    else:
-        try:
-            subprocess.call(["feynman_sr1"], timeout=try_time)
-        except:
-            pass
+    try:
+        symbolic_regress1(try_time)
+    except:
+        pass
 
     return 1
