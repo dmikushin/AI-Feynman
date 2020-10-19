@@ -156,11 +156,11 @@
               do j = 1, ndata
                  newloss = abs(xy(nvar + 1, j) - (prefactor + f3(n, ii, ops, xy(1, j))))
                  if (.not. ((newloss .ge. 0) .or. (newloss .le. 0))) newloss = 1.e30 ! This was a NaN :-)
+                 if (newloss .ge. minloss) then
+                    minloss_out = newloss
+                 endif
                  rmsloss = rmsloss + newloss**2
                  maxloss = max(maxloss, newloss)
-                 if (newloss .ge. minloss) then
-                    exit
-                 endif
               end do
               if (maxloss .lt. minloss) then
                  ! We have a new best fit

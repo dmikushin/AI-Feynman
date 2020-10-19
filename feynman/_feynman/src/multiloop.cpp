@@ -1,3 +1,4 @@
+#include <atomic>
 #include <cstdio>
 #include <memory>
 #include <stdint.h>
@@ -18,9 +19,17 @@ struct LossDataCommon
 	int n;
 	T count;
 	vector<T> divisors;
-	double minloss;
+	std::atomic<T> minloss;
 
 	loop_body_t loop_body;
+
+	void update_minloss(double value) noexcept
+	{
+		T prev_value = minloss;
+		while (prev_value > value &&
+			!minloss.compare_exchange_weak(prev_value, value))
+			continue;
+	}
 
 	LossDataCommon(int n_, T count_, int* bases, double minloss_, loop_body_t loop_body_) :
 		n(n_), count(count_), divisors(n_), minloss(minloss_), loop_body(loop_body_)
@@ -73,6 +82,8 @@ struct LossData
 		}
 
 		c->loop_body(reinterpret_cast<int*>(&i[0]), &prefactor, &minloss, &rmsloss, ops);
+
+		c->update_minloss(minloss);
 
 		evaluated = true;
 		return *this;
